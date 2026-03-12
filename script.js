@@ -30,6 +30,11 @@ const panelPowerEl = document.getElementById("panelPower");
 const modeEl  = document.getElementById("mode");
 const pompaEl = document.getElementById("pompa");
 
+// Elemen baru untuk baterai dan solar
+const batteryPercentEl = document.getElementById("batteryPercent");
+const batteryProgressBar = document.getElementById("batteryProgressBar");
+const solarIntensityEl = document.querySelector(".solar-info span strong");
+
 /*********************************************************
  HEARTBEAT SYSTEM
 *********************************************************/
@@ -127,6 +132,120 @@ const detailedChart = new Chart(detailedCtx, {
     }
   }
 });
+
+/*********************************************************
+ FUNGSI KONVERSI BATERAI
+*********************************************************/
+
+// Konversi tegangan baterai ke persentase
+// 0% = 10V, 100% = 14.3V
+function voltageToBatteryPercent(voltage) {
+  const minVolt = 10;
+  const maxVolt = 14.3;
+  
+  // Jika voltage di luar range, clamp ke batas
+  if (voltage <= minVolt) return 0;
+  if (voltage >= maxVolt) return 100;
+  
+  // Hitung persentase linear
+  const percent = ((voltage - minVolt) / (maxVolt - minVolt)) * 100;
+  return Math.round(percent);
+}
+
+// Update tampilan baterai
+function updateBatteryDisplay(voltage) {
+  const voltValue = parseFloat(voltage) || 0;
+  const percent = voltageToBatteryPercent(voltValue);
+  
+  // Update persentase
+  if (batteryPercentEl) {
+    batteryPercentEl.textContent = percent + '%';
+  }
+  
+  // Update progress bar
+  if (batteryProgressBar) {
+    batteryProgressBar.style.width = percent + '%';
+    
+    // Ubah warna berdasarkan level
+    if (percent <= 20) {
+      batteryProgressBar.style.background = 'linear-gradient(90deg, #ef4444, #dc2626)';
+    } else if (percent <= 50) {
+      batteryProgressBar.style.background = 'linear-gradient(90deg, #f59e0b, #d97706)';
+    } else {
+      batteryProgressBar.style.background = 'linear-gradient(90deg, #10b981, #059669)';
+    }
+  }
+}
+
+/*********************************************************
+ FUNGSI KONVERSI INTENSITAS CAHAYA
+*********************************************************/
+
+// Konversi tegangan panel surya ke intensitas cahaya
+// 0V = 0 W/m², 12V = 100 W/m², 18V = 1000 W/m²
+function voltageToLightIntensity(voltage) {
+  const voltValue = parseFloat(voltage) || 0;
+  
+  // Jika tegangan 0 atau sangat kecil, intensitas 0
+  if (voltValue <= 0.1) return 0;
+  
+  // Titik referensi:
+  // (0V, 0 W/m²)
+  // (12V, 100 W/m²)
+  // (18V, 1000 W/m²)
+  
+  // Menggunakan interpolasi linear dengan 3 titik
+  // Untuk tegangan antara 0-12V
+  if (voltValue < 12) {
+    // Mapping linear dari (0,0) ke (12,100)
+    // intensity = (voltValue / 12) * 100
+    const intensity = (voltValue / 12) * 100;
+    return Math.round(intensity);
+  }
+  
+  // Untuk tegangan antara 12-18V
+  if (voltValue >= 12 && voltValue <= 18) {
+    // Mapping linear dari (12,100) ke (18,1000)
+    // intensity = 100 + ((voltValue - 12) / 6) * 900
+    const intensity = 100 + ((voltValue - 12) / 6) * 900;
+    return Math.round(intensity);
+  }
+  
+  // Untuk tegangan di atas 18V, maksimum 1000 W/m²
+  if (voltValue > 18) {
+    return 1000;
+  }
+  
+  return 0;
+}
+
+// Update tampilan intensitas cahaya
+function updateLightIntensityDisplay(voltage) {
+  const voltValue = parseFloat(voltage) || 0;
+  const intensity = voltageToLightIntensity(voltValue);
+  
+  // Update elemen intensitas cahaya
+  const lightIntensityEl = document.getElementById('lightIntensity');
+  if (lightIntensityEl) {
+    lightIntensityEl.textContent = intensity + ' W/m²';
+  } else {
+    // Jika elemen tidak ditemukan, coba cari dengan cara lain
+    const solarInfo = document.querySelector('.solar-info');
+    if (solarInfo) {
+      // Update atau buat elemen baru
+      let intensitySpan = solarInfo.querySelector('strong');
+      if (intensitySpan) {
+        intensitySpan.textContent = intensity + ' W/m²';
+      } else {
+        solarInfo.innerHTML = `<i class="fas fa-cloud-sun"></i> <span>Intensitas Cahaya: <strong>${intensity} W/m²</strong></span>`;
+      }
+    }
+  }
+  
+  // Tambahkan log untuk debugging (opsional)
+  console.log(`Tegangan Panel: ${voltValue}V -> Intensitas: ${intensity} W/m²`);
+}
+
 
 /*********************************************************
  FUNGSI MANAJEMEN HISTORI DETAIL
@@ -379,39 +498,45 @@ client.on("message", (topic, message) => {
   }
 
   if (topic === "irrigation/soil") {
-  const soilValue = Number(data);
-  soilEl.textContent = soilValue;
-  document.getElementById('soilProgress').style.width = soilValue + '%';
-  addSoilData(soilValue);
-  addDetailData(soilValue);
-  }
-  function updateBatteryPercent() {
-    const battVolt = parseFloat(document.getElementById('battVolt').textContent) || 12.7;
-    // Simulasi persentase berdasarkan voltase (asumsi baterai 12V penuh di 13.8V)
-    const percent = Math.min(100, Math.max(0, ((battVolt - 11) / (13.8 - 11)) * 100));
-    const percentRounded = Math.round(percent);
-    document.getElementById('batteryPercent').textContent = percentRounded + '%';
-    document.getElementById('batteryProgressBar').style.width = percentRounded + '%';
+    const soilValue = Number(data);
+    soilEl.textContent = soilValue;
+    document.getElementById('soilProgress').style.width = soilValue + '%';
+    addSoilData(soilValue);
   }
 
   if (topic === "irrigation/battery/voltage") {
-  battVoltEl.textContent = data;
-  updateBatteryPercent();
+    battVoltEl.textContent = data;
+    updateBatteryDisplay(data);
+  }
+  
+  if (topic === "irrigation/battery/current") {
+    battCurrEl.textContent = data;
+  }
+  
+  if (topic === "irrigation/battery/power") {
+    battPowerEl.textContent = data;
   }
 
-  if (topic === "irrigation/battery/voltage") battVoltEl.textContent = data;
-  if (topic === "irrigation/battery/current") battCurrEl.textContent = data;
-  if (topic === "irrigation/battery/power")   battPowerEl.textContent = data;
+  if (topic === "irrigation/panel/voltage") {
+    panelVoltEl.textContent = data;
+    updateLightIntensityDisplay(data);
+  }
+  
+  if (topic === "irrigation/panel/current") {
+    panelCurrEl.textContent = data;
+  }
+  
+  if (topic === "irrigation/panel/power") {
+    panelPowerEl.textContent = data;
+  }
 
-  if (topic === "irrigation/panel/voltage") panelVoltEl.textContent = data;
-  if (topic === "irrigation/panel/current") panelCurrEl.textContent = data;
-  if (topic === "irrigation/panel/power")   panelPowerEl.textContent = data;
-
-  if (topic === "irrigation/mode")
+  if (topic === "irrigation/mode") {
     modeEl.textContent = data === "1" ? "AUTO" : "MANUAL";
+  }
 
-  if (topic === "irrigation/pump")
+  if (topic === "irrigation/pump") {
     pompaEl.textContent = data === "1" ? "ON" : "OFF";
+  }
 });
 
 /*********************************************************
@@ -448,6 +573,12 @@ function setPump(state) {
 
 // Populate date picker
 populateDatePicker();
+
+// Set initial battery display (default 12.7V)
+updateBatteryDisplay(12.7);
+
+// Set initial light intensity (default 9.7V)
+updateLightIntensityDisplay(9.7);
 
 // Simulasi data demo (untuk testing)
 function addDemoDetailData() {
