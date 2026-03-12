@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Irrigation Dashboard Pro</title>
+
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:,">
+
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<!-- Font Awesome untuk ikon yang lebih menarik -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+
+<div class="glass-background">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+</div>
+
+<header>
+  <div class="header-content">
+    <i class="fas fa-leaf header-icon"></i>
+    <h1>Smart Irrigation Dashboard</h1>
+    <span class="badge-pro">PRO</span>
+  </div>
+  <p class="header-subtitle">Sistem Penyiraman Otomatis Berbasis IoT</p>
+</header>
+
+<div class="status-bar glass-card">
+  <div class="status-item">
+    <i class="fas fa-plug status-icon"></i>
+    <span class="status-label">MQTT:</span>
+    <span id="mqttStatus" class="status-value ok">CONNECTED</span>
+  </div>
+  <div class="status-item">
+    <i class="fas fa-microchip status-icon"></i>
+    <span class="status-label">SISTEM IoT:</span>
+    <span id="espStatus" class="status-value checking">CHECKING...</span>
+  </div>
+  <div class="status-item">
+    <i class="fas fa-clock status-icon"></i>
+    <span class="status-label">Update:</span>
+    <span id="lastUpdate" class="status-value">--:--:--</span>
+  </div>
+  <div class="status-item">
+    <i class="fas fa-wifi status-icon"></i>
+    <span class="status-label">Koneksi:</span>
+    <span class="status-value ok">Stabil</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- SOIL CARD - DITINGKATKAN -->
+  <div class="card soil-card glass-card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fas fa-seedling card-icon"></i>
+        <h2>Kelembapan Tanah</h2>
+      </div>
+      <div class="card-badge">
+        <span class="live-badge"><i class="fas fa-circle"></i> LIVE</span>
+      </div>
+    </div>
+    
+    <div class="soil-value-container">
+      <div class="soil-value">
+        <span id="soil" class="soil-number">--</span>
+        <span class="soil-unit">%</span>
+      </div>
+      <div class="soil-range">
+        <span>0%</span>
+        <div class="soil-progress">
+          <div class="soil-progress-bar" id="soilProgress" style="width: 0%"></div>
+        </div>
+        <span>100%</span>
+      </div>
+      <p class="soil-description">
+        <i class="fas fa-info-circle"></i>
+        Rentang kelembapan optimal: 60% - 80%
+      </p>
+    </div>
+
+    <div class="chart-container">
+      <canvas id="soilChart"></canvas>
+    </div>
+
+    <!-- TOMBOL CEK HISTORIS DENGAN DESAIN ELEGAN -->
+    <div class="history-button-container">
+      <button class="btn history-btn" onclick="toggleHistoryPanel()">
+        <i class="fas fa-history"></i>
+        <span>CEK HISTORIS KELEMBAPAN</span>
+        <i class="fas fa-chevron-down"></i>
+      </button>
+    </div>
+
+    <!-- PANEL HISTORIS (AWALNYA HIDDEN) -->
+    <div id="historyPanel" class="history-panel hidden">
+      <div class="history-header">
+        <i class="fas fa-calendar-alt"></i>
+        <h3>Pilih Tanggal Historis</h3>
+      </div>
+      
+      <!-- KALENDER DENGAN DESAIN PREMIUM -->
+      <div class="date-picker glass-card-light">
+        <div class="date-input-group">
+          <label><i class="far fa-calendar"></i> Tanggal</label>
+          <select id="daySelect" class="date-select"></select>
+        </div>
+        <div class="date-input-group">
+          <label><i class="far fa-calendar-alt"></i> Bulan</label>
+          <select id="monthSelect" class="date-select"></select>
+        </div>
+        <div class="date-input-group">
+          <label><i class="far fa-calendar"></i> Tahun</label>
+          <select id="yearSelect" class="date-select"></select>
+        </div>
+        <button class="btn view-history-btn" onclick="loadHistoricalData()">
+          <i class="fas fa-chart-line"></i> TAMPILKAN GRAFIK
+        </button>
+      </div>
+
+      <!-- GRAFIK 24 JAM DENGAN DESAIN ELEGAN -->
+      <div id="detailedChartContainer" class="detailed-chart-container hidden">
+        <div class="detailed-chart-header">
+          <div class="detailed-chart-title">
+            <i class="fas fa-chart-area"></i>
+            <h4>Data Kelembapan 24 Jam</h4>
+          </div>
+          <div class="chart-info-badge">
+            <span><i class="fas fa-clock"></i> Interval 5 Menit</span>
+          </div>
+          <button class="btn close-chart-btn" onclick="closeDetailedChart()">
+            <i class="fas fa-times"></i> TUTUP
+          </button>
+        </div>
+        <div class="chart-container premium-chart">
+          <canvas id="detailedHistoryChart"></canvas>
+        </div>
+        <div class="chart-footer">
+          <i class="fas fa-database"></i>
+          <span>Menampilkan data <span id="selectedDate">--</span> • <span id="dataPointCount">0</span> titik pengukuran</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DATA GRID DENGAN DESAIN PREMIUM -->
+  <div id="dataGridContainer" class="grid">
+    <!-- CARD BATERAI -->
+    <div class="card battery-card glass-card">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fas fa-battery-full card-icon battery-icon"></i>
+          <h2>Data Baterai</h2>
+        </div>
+        <div class="card-badge">
+          <span class="badge-success"><i class="fas fa-check-circle"></i> Active</span>
+        </div>
+      </div>
+      
+      <div class="data-grid">
+        <div class="data-item glass-card-light">
+          <div class="data-icon"><i class="fas fa-bolt"></i></div>
+          <div class="data-content">
+            <span class="data-label">Tegangan</span>
+            <span class="data-value"><span id="battVolt">--</span> V</span>
+          </div>
+        </div>
+        
+        <div class="data-item glass-card-light">
+          <div class="data-icon"><i class="fas fa-water"></i></div>
+          <div class="data-content">
+            <span class="data-label">Arus</span>
+            <span class="data-value"><span id="battCurr">--</span> mA</span>
+          </div>
+        </div>
+        
+        <div class="data-item glass-card-light">
+          <div class="data-icon"><i class="fas fa-chart-bar"></i></div>
+          <div class="data-content">
+            <span class="data-label">Daya</span>
+            <span class="data-value"><span id="battPower">--</span> W</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="battery-level">
+        <div class="battery-level-text">
+          <span>Level Baterai</span>
+          <span class="battery-percent" id="batteryPercent">100%</span>
+        </div>
+        <div class="battery-progress">
+          <div class="battery-progress-bar" id="batteryProgressBar" style="width: 100%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD PANEL SURYA -->
+    <div class="card solar-card glass-card">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fas fa-sun card-icon solar-icon"></i>
+          <h2>Data Panel Surya</h2>
+        </div>
+        <div class="card-badge">
+          <span class="badge-warning"><i class="fas fa-sun"></i> Solar</span>
+        </div>
+      </div>
+      
+      <div class="data-grid">
+        <div class="data-item glass-card-light">
+          <div class="data-icon"><i class="fas fa-bolt"></i></div>
+          <div class="data-content">
+            <span class="data-label">Tegangan</span>
+            <span class="data-value"><span id="panelVolt">--</span> V</span>
+          </div>
+        </div>
+        
+        <div class="data-item glass-card-light">
+          <div class="data-icon"><i class="fas fa-water"></i></div>
+          <div class="data-content">
+            <span class="data-label">Arus</span>
+            <span class="data-value"><span id="panelCurr">--</span> mA</span>
+          </div>
+        </div>
+        
+        <div class="data-item glass-card-light">
+          <div class="data-icon"><i class="fas fa-chart-bar"></i></div>
+          <div class="data-content">
+            <span class="data-label">Daya</span>
+            <span class="data-value"><span id="panelPower">--</span> W</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="solar-info">
+        <i class="fas fa-cloud-sun"></i>
+        <span>Intensitas Cahaya: <strong>850 W/m²</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTROL CARD DENGAN DESAIN PREMIUM -->
+  <div class="card control-card glass-card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fas fa-sliders-h card-icon"></i>
+        <h2>Kontrol Sistem</h2>
+      </div>
+      <div class="card-badge">
+        <span class="badge-info"><i class="fas fa-robot"></i> Manual Mode</span>
+      </div>
+    </div>
+    
+    <div class="control-grid">
+      <div class="status-display">
+        <div class="status-box glass-card-light">
+          <i class="fas fa-cog"></i>
+          <span class="status-box-label">Mode</span>
+          <span class="status-box-value" id="mode">MANUAL</span>
+        </div>
+        
+        <div class="status-box glass-card-light">
+          <i class="fas fa-water"></i>
+          <span class="status-box-label">Pompa</span>
+          <span class="status-box-value" id="pompa">OFF</span>
+        </div>
+      </div>
+      
+      <div class="control-buttons">
+        <button class="btn control-btn mode-btn" onclick="toggleMode()">
+          <i class="fas fa-sync-alt"></i>
+          GANTI MODE
+        </button>
+        
+        <div class="pump-controls">
+          <button class="btn pump-btn on-btn" onclick="setPump('ON')">
+            <i class="fas fa-play"></i>
+            POMPA ON
+          </button>
+          <button class="btn pump-btn off-btn" onclick="setPump('OFF')">
+            <i class="fas fa-stop"></i>
+            POMPA OFF
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="system-status">
+      <div class="status-indicator">
+        <span class="dot green"></span>
+        <span>Sistem Siap</span>
+      </div>
+      <div class="status-indicator">
+        <span class="dot yellow"></span>
+        <span>Penyiraman Kontrol Sistem</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <div class="footer-content">
+    <i class="fas fa-microchip"></i>
+    <span>ESP32 • HiveMQ Cloud • Smart Irrigation IoT Pro</span>
+    <i class="fas fa-leaf"></i>
+  </div>
+  <div class="footer-version">v2.0.0 • Histori Detail 5 Menit</div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
