@@ -702,6 +702,18 @@ canvas {
   transition: width 0.3s ease;
 }
 
+.battery-progress-bar.low {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.battery-progress-bar.medium {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.battery-progress-bar.high {
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+
 /* SOLAR INFO */
 .solar-info {
   margin-top: 20px;
@@ -714,6 +726,12 @@ canvas {
   color: #b45309;
   font-size: 13px;
   flex-wrap: wrap;
+}
+
+.solar-info strong {
+  color: #f59e0b;
+  font-size: 14px;
+  margin-left: 5px;
 }
 
 /* CONTROL CARD */
