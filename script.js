@@ -33,7 +33,13 @@ const pompaEl = document.getElementById("pompa");
 // Elemen baru untuk baterai dan solar
 const batteryPercentEl = document.getElementById("batteryPercent");
 const batteryProgressBar = document.getElementById("batteryProgressBar");
-const solarIntensityEl = document.querySelector(".solar-info span strong");
+const lightIntensityEl = document.getElementById("lightIntensity");
+
+/*********************************************************
+ THRESHOLD VARIABLES
+*********************************************************/
+let pumpOnThreshold = 50;  // nilai default
+let pumpOffThreshold = 80; // nilai default
 
 /*********************************************************
  HEARTBEAT SYSTEM
@@ -54,6 +60,10 @@ const DETAIL_INTERVAL = 300000; // 5 menit dalam milidetik
 // Struktur data: { timestamp: number, value: number }[]
 let soilDetailHistory = loadDetailHistory();
 
+/*********************************************************
+ CHART INITIALIZATION
+*********************************************************/
+
 // Chart realtime
 const ctx = document.getElementById("soilChart").getContext("2d");
 const soilChart = new Chart(ctx, {
@@ -66,20 +76,32 @@ const soilChart = new Chart(ctx, {
       borderColor: "#2ecc71",
       backgroundColor: "rgba(46,204,113,0.25)",
       tension: 0.4,
-      fill: true
+      fill: true,
+      pointRadius: 3,
+      pointHoverRadius: 5
     }]
   },
   options: {
     responsive: true,
+    maintainAspectRatio: false,
     animation: false,
     scales: {
       y: {
         min: 0,
         max: 100,
-        title: { display: true, text: "Kelembapan (%)" }
+        title: { display: true, text: "Kelembapan (%)" },
+        grid: { color: "rgba(0,0,0,0.05)" }
       },
       x: {
-        title: { display: true, text: "Waktu (Jam:Menit:Detik)" }
+        title: { display: true, text: "Waktu (Jam:Menit:Detik)" },
+        grid: { display: false }
+      }
+    },
+    plugins: {
+      tooltip: {
+        callbacks: {
+          label: (context) => `Kelembapan: ${context.raw}%`
+        }
       }
     }
   }
@@ -115,12 +137,14 @@ const detailedChart = new Chart(detailedCtx, {
           },
           tooltipFormat: 'HH:mm'
         },
-        title: { display: true, text: 'Waktu (Jam:Menit)' }
+        title: { display: true, text: 'Waktu (Jam:Menit)' },
+        grid: { display: false }
       },
       y: {
         min: 0,
         max: 100,
-        title: { display: true, text: 'Kelembapan (%)' }
+        title: { display: true, text: 'Kelembapan (%)' },
+        grid: { color: "rgba(0,0,0,0.05)" }
       }
     },
     plugins: {
@@ -189,24 +213,14 @@ function voltageToLightIntensity(voltage) {
   // Jika tegangan 0 atau sangat kecil, intensitas 0
   if (voltValue <= 0.1) return 0;
   
-  // Titik referensi:
-  // (0V, 0 W/m²)
-  // (12V, 100 W/m²)
-  // (18V, 1000 W/m²)
-  
-  // Menggunakan interpolasi linear dengan 3 titik
   // Untuk tegangan antara 0-12V
   if (voltValue < 12) {
-    // Mapping linear dari (0,0) ke (12,100)
-    // intensity = (voltValue / 12) * 100
     const intensity = (voltValue / 12) * 100;
     return Math.round(intensity);
   }
   
   // Untuk tegangan antara 12-18V
   if (voltValue >= 12 && voltValue <= 18) {
-    // Mapping linear dari (12,100) ke (18,1000)
-    // intensity = 100 + ((voltValue - 12) / 6) * 900
     const intensity = 100 + ((voltValue - 12) / 6) * 900;
     return Math.round(intensity);
   }
@@ -224,28 +238,79 @@ function updateLightIntensityDisplay(voltage) {
   const voltValue = parseFloat(voltage) || 0;
   const intensity = voltageToLightIntensity(voltValue);
   
-  // Update elemen intensitas cahaya
-  const lightIntensityEl = document.getElementById('lightIntensity');
   if (lightIntensityEl) {
     lightIntensityEl.textContent = intensity + ' W/m²';
-  } else {
-    // Jika elemen tidak ditemukan, coba cari dengan cara lain
-    const solarInfo = document.querySelector('.solar-info');
-    if (solarInfo) {
-      // Update atau buat elemen baru
-      let intensitySpan = solarInfo.querySelector('strong');
-      if (intensitySpan) {
-        intensitySpan.textContent = intensity + ' W/m²';
-      } else {
-        solarInfo.innerHTML = `<i class="fas fa-cloud-sun"></i> <span>Intensitas Cahaya: <strong>${intensity} W/m²</strong></span>`;
-      }
-    }
   }
-  
-  // Tambahkan log untuk debugging (opsional)
-  console.log(`Tegangan Panel: ${voltValue}V -> Intensitas: ${intensity} W/m²`);
 }
 
+/*********************************************************
+ FUNGSI THRESHOLD DISPLAY
+*********************************************************/
+
+// Update tampilan threshold
+function updateThresholdDisplay() {
+  // Update label
+  const onLabel = document.querySelector('.pump-on-label .threshold-value');
+  const offLabel = document.querySelector('.pump-off-label .threshold-value');
+  
+  if (onLabel) onLabel.textContent = `≤${pumpOnThreshold}%`;
+  if (offLabel) offLabel.textContent = `≥${pumpOffThreshold}%`;
+  
+  // Update deskripsi
+  const desc = document.querySelector('.threshold-description');
+  if (desc) {
+    desc.innerHTML = `
+      <i class="fas fa-info-circle"></i>
+      <span>Pompa <strong>ON</strong> jika kelembapan <strong>≤${pumpOnThreshold}%</strong> • 
+             Pompa <strong>OFF</strong> jika kelembapan <strong>≥${pumpOffThreshold}%</strong></span>
+    `;
+  }
+  
+  // Update lebar zona di threshold bar
+  const onRange = document.querySelector('.pump-on-range');
+  const optimalRange = document.querySelector('.optimal-range');
+  const offRange = document.querySelector('.pump-off-range');
+  
+  if (onRange && optimalRange && offRange) {
+    const onPercent = pumpOnThreshold;
+    const offPercent = 100 - pumpOffThreshold;
+    const optimalPercent = 100 - onPercent - offPercent;
+    
+    onRange.style.width = onPercent + '%';
+    optimalRange.style.width = optimalPercent + '%';
+    offRange.style.width = offPercent + '%';
+    
+    // Update label di dalam range
+    const onLabelRange = onRange.querySelector('.range-label');
+    const optimalLabelRange = optimalRange.querySelector('.range-label');
+    const offLabelRange = offRange.querySelector('.range-label');
+    
+    if (onLabelRange) onLabelRange.textContent = `ON ≤${pumpOnThreshold}%`;
+    if (optimalLabelRange) optimalLabelRange.textContent = 'Optimal';
+    if (offLabelRange) offLabelRange.textContent = `OFF ≥${pumpOffThreshold}%`;
+  }
+}
+
+// Fungsi untuk update threshold indicator berdasarkan nilai soil
+function updateSoilThresholdIndicator(soilValue) {
+  const pumpOnRange = document.querySelector('.pump-on-range');
+  const optimalRange = document.querySelector('.optimal-range');
+  const pumpOffRange = document.querySelector('.pump-off-range');
+  
+  // Hapus class highlight yang ada
+  document.querySelectorAll('.threshold-range').forEach(el => {
+    el.classList.remove('active-threshold');
+  });
+  
+  // Tambah highlight berdasarkan nilai soil
+  if (soilValue <= pumpOnThreshold) {
+    pumpOnRange.classList.add('active-threshold');
+  } else if (soilValue >= pumpOffThreshold) {
+    pumpOffRange.classList.add('active-threshold');
+  } else {
+    optimalRange.classList.add('active-threshold');
+  }
+}
 
 /*********************************************************
  FUNGSI MANAJEMEN HISTORI DETAIL
@@ -403,11 +468,15 @@ function loadHistoricalData() {
   
   // Update info
   const formattedDate = `${day} ${getMonthName(month)} ${year}`;
-  document.getElementById('selectedDate').textContent = formattedDate;
-  document.getElementById('dataPointCount').textContent = filteredData.length;
+  const selectedDateEl = document.getElementById('selectedDate');
+  const dataPointCountEl = document.getElementById('dataPointCount');
+  
+  if (selectedDateEl) selectedDateEl.textContent = formattedDate;
+  if (dataPointCountEl) dataPointCountEl.textContent = filteredData.length;
   
   // Tampilkan container chart
-  document.getElementById('detailedChartContainer').classList.remove('hidden');
+  const chartContainer = document.getElementById('detailedChartContainer');
+  if (chartContainer) chartContainer.classList.remove('hidden');
 }
 
 // Helper: dapatkan nama bulan
@@ -425,26 +494,40 @@ function getMonthName(month) {
 function toggleHistoryPanel() {
   const panel = document.getElementById('historyPanel');
   const gridContainer = document.getElementById('dataGridContainer');
+  const historyBtnIcon = document.querySelector('.history-btn i:last-child');
   
   if (panel.classList.contains('hidden')) {
     panel.classList.remove('hidden');
     // Pindahkan grid container ke dalam panel
-    document.querySelector('.history-panel').appendChild(gridContainer);
+    if (gridContainer && panel) {
+      panel.appendChild(gridContainer);
+    }
+    // Ubah icon chevron
+    if (historyBtnIcon) {
+      historyBtnIcon.className = 'fas fa-chevron-up';
+    }
   } else {
     panel.classList.add('hidden');
     // Kembalikan grid container ke posisi semula
-    document.querySelector('.container').insertBefore(
-      gridContainer, 
-      document.querySelector('.card:last-child')
-    );
+    const container = document.querySelector('.container');
+    if (gridContainer && container) {
+      container.insertBefore(gridContainer, document.querySelector('.card.control-card'));
+    }
     // Sembunyikan juga chart detail
     closeDetailedChart();
+    // Ubah icon chevron
+    if (historyBtnIcon) {
+      historyBtnIcon.className = 'fas fa-chevron-down';
+    }
   }
 }
 
 // Tutup chart detail
 function closeDetailedChart() {
-  document.getElementById('detailedChartContainer').classList.add('hidden');
+  const chartContainer = document.getElementById('detailedChartContainer');
+  if (chartContainer) {
+    chartContainer.classList.add('hidden');
+  }
   detailedChart.data.datasets[0].data = [];
   detailedChart.update();
 }
@@ -476,11 +559,17 @@ client.on("connect", () => {
   mqttStatus.textContent = "CONNECTED";
   mqttStatus.className = "ok";
   client.subscribe("irrigation/#");
+  console.log("MQTT Connected - Subscribed to irrigation/#");
 });
 
 client.on("offline", () => {
   mqttStatus.textContent = "DISCONNECTED";
   mqttStatus.className = "bad";
+  console.log("MQTT Offline");
+});
+
+client.on("error", (err) => {
+  console.error("MQTT Error:", err);
 });
 
 /*********************************************************
@@ -489,6 +578,7 @@ client.on("offline", () => {
 client.on("message", (topic, message) => {
   const data = message.toString();
 
+  // Heartbeat
   if (topic === "irrigation/heartbeat") {
     lastHeartbeat = Date.now();
     everOnline = true;
@@ -497,45 +587,77 @@ client.on("message", (topic, message) => {
     return;
   }
 
+  // Threshold values
+  if (topic === "irrigation/threshold/pompa_on") {
+    pumpOnThreshold = parseInt(data) || 50;
+    console.log("Pompa ON threshold:", pumpOnThreshold);
+    updateThresholdDisplay();
+    return;
+  }
+  
+  if (topic === "irrigation/threshold/pompa_off") {
+    pumpOffThreshold = parseInt(data) || 80;
+    console.log("Pompa OFF threshold:", pumpOffThreshold);
+    updateThresholdDisplay();
+    return;
+  }
+
+  // Soil moisture
   if (topic === "irrigation/soil") {
     const soilValue = Number(data);
     soilEl.textContent = soilValue;
-    document.getElementById('soilProgress').style.width = soilValue + '%';
+    const soilProgress = document.getElementById('soilProgress');
+    if (soilProgress) soilProgress.style.width = soilValue + '%';
     addSoilData(soilValue);
+    
+    // Update visual indicator berdasarkan threshold
+    updateSoilThresholdIndicator(soilValue);
+    return;
   }
 
+  // Battery data
   if (topic === "irrigation/battery/voltage") {
     battVoltEl.textContent = data;
     updateBatteryDisplay(data);
+    return;
   }
   
   if (topic === "irrigation/battery/current") {
     battCurrEl.textContent = data;
+    return;
   }
   
   if (topic === "irrigation/battery/power") {
     battPowerEl.textContent = data;
+    return;
   }
 
+  // Solar panel data
   if (topic === "irrigation/panel/voltage") {
     panelVoltEl.textContent = data;
     updateLightIntensityDisplay(data);
+    return;
   }
   
   if (topic === "irrigation/panel/current") {
     panelCurrEl.textContent = data;
+    return;
   }
   
   if (topic === "irrigation/panel/power") {
     panelPowerEl.textContent = data;
+    return;
   }
 
+  // Mode and pump status
   if (topic === "irrigation/mode") {
     modeEl.textContent = data === "1" ? "AUTO" : "MANUAL";
+    return;
   }
 
   if (topic === "irrigation/pump") {
     pompaEl.textContent = data === "1" ? "ON" : "OFF";
+    return;
   }
 });
 
@@ -553,6 +675,7 @@ setInterval(() => {
   if (everOnline && now - lastHeartbeat > HEARTBEAT_TIMEOUT) {
     espStatus.textContent = "OFFLINE";
     espStatus.className = "bad";
+    everOnline = false;
   }
 }, 1000);
 
@@ -561,10 +684,12 @@ setInterval(() => {
 *********************************************************/
 function toggleMode() {
   client.publish("irrigation/cmd/mode", "TOGGLE");
+  console.log("Toggle mode command sent");
 }
 
 function setPump(state) {
   client.publish("irrigation/cmd/pump", state);
+  console.log("Pump command sent:", state);
 }
 
 /*********************************************************
@@ -573,6 +698,9 @@ function setPump(state) {
 
 // Populate date picker
 populateDatePicker();
+
+// Set initial threshold display
+updateThresholdDisplay();
 
 // Set initial battery display (default 12.7V)
 updateBatteryDisplay(12.7);
@@ -606,6 +734,7 @@ function addDemoDetailData() {
   }
   
   saveDetailHistory();
+  console.log("Demo data added:", soilDetailHistory.length, "points");
 }
 
 // Uncomment untuk menambah data demo (jika history kosong)
