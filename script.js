@@ -589,18 +589,62 @@ client.on("message", (topic, message) => {
 
   // Threshold values
   if (topic === "irrigation/threshold/pompa_on") {
-    pumpOnThreshold = parseInt(data) || 50;
-    console.log("Pompa ON threshold:", pumpOnThreshold);
-    updateThresholdDisplay();
-    return;
+  pumpOnThreshold = parseInt(data) || 50;
+  console.log("Pompa ON threshold:", pumpOnThreshold);
+  updateThresholdDisplay();
+  return;
+}
+
+if (topic === "irrigation/threshold/pompa_off") {
+  pumpOffThreshold = parseInt(data) || 80;
+  console.log("Pompa OFF threshold:", pumpOffThreshold);
+  updateThresholdDisplay();
+  return;
+}
+
+// Fungsi untuk update tampilan threshold
+function updateThresholdDisplay() {
+  // Update label
+  const onLabel = document.querySelector('.pump-on-label .threshold-value');
+  const offLabel = document.querySelector('.pump-off-label .threshold-value');
+  
+  if (onLabel) onLabel.textContent = `≤${pumpOnThreshold}%`;
+  if (offLabel) offLabel.textContent = `≥${pumpOffThreshold}%`;
+  
+  // Update deskripsi - PERBAIKI LOGIKA
+  const desc = document.querySelector('.threshold-description');
+  if (desc) {
+    desc.innerHTML = `
+      <i class="fas fa-info-circle"></i>
+      <span>Pompa <strong>ON</strong> jika kelembapan <strong>≤${pumpOnThreshold}%</strong> • 
+             Pompa <strong>OFF</strong> jika kelembapan <strong>≥${pumpOffThreshold}%</strong></span>
+    `;
   }
   
-  if (topic === "irrigation/threshold/pompa_off") {
-    pumpOffThreshold = parseInt(data) || 80;
-    console.log("Pompa OFF threshold:", pumpOffThreshold);
-    updateThresholdDisplay();
-    return;
+  // Update lebar zona di threshold bar
+  const onRange = document.querySelector('.pump-on-range');
+  const optimalRange = document.querySelector('.optimal-range');
+  const offRange = document.querySelector('.pump-off-range');
+  
+  if (onRange && optimalRange && offRange) {
+    const onPercent = pumpOnThreshold;
+    const offPercent = 100 - pumpOffThreshold;
+    const optimalPercent = 100 - onPercent - offPercent;
+    
+    onRange.style.width = onPercent + '%';
+    optimalRange.style.width = optimalPercent + '%';
+    offRange.style.width = offPercent + '%';
+    
+    // Update label di dalam range - PERBAIKI LABEL
+    const onLabelRange = onRange.querySelector('.range-label');
+    const optimalLabelRange = optimalRange.querySelector('.range-label');
+    const offLabelRange = offRange.querySelector('.range-label');
+    
+    if (onLabelRange) onLabelRange.textContent = `ON ≤${pumpOnThreshold}%`;
+    if (optimalLabelRange) optimalLabelRange.textContent = 'Optimal';
+    if (offLabelRange) offLabelRange.textContent = `OFF ≥${pumpOffThreshold}%`;
   }
+}
 
   // Soil moisture
   if (topic === "irrigation/soil") {
