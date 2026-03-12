@@ -1193,6 +1193,225 @@ footer {
   }
 }
 
+/* PERBAIKAN KHUSUS ANDROID */
+@media (max-width: 600px) {
+  /* Pastikan grid tetap 2 kolom untuk data baterai dan panel */
+  .grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+  
+  /* Perbaiki card baterai dan panel */
+  .battery-card, .solar-card {
+    padding: 12px !important;
+    margin-bottom: 0 !important;
+  }
+  
+  /* Perkecil header card */
+  .card-header {
+    margin-bottom: 10px !important;
+  }
+  
+  .card-header h2 {
+    font-size: 14px !important;
+  }
+  
+  .card-icon {
+    font-size: 18px !important;
+    padding: 6px !important;
+  }
+  
+  .card-badge span {
+    font-size: 10px !important;
+    padding: 4px 8px !important;
+  }
+  
+  /* Ubah data-grid jadi 1 kolom di Android */
+  .data-grid {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+    margin: 10px 0 !important;
+  }
+  
+  /* Perbaiki data item */
+  .data-item {
+    padding: 8px !important;
+    gap: 8px !important;
+  }
+  
+  .data-icon {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 12px !important;
+    border-radius: 10px !important;
+  }
+  
+  .data-label {
+    font-size: 9px !important;
+  }
+  
+  .data-value {
+    font-size: 12px !important;
+  }
+  
+  .data-value span {
+    font-size: 14px !important;
+  }
+  
+  /* Perbaiki battery level */
+  .battery-level {
+    padding: 8px !important;
+    margin-top: 8px !important;
+  }
+  
+  .battery-level-text {
+    font-size: 11px !important;
+  }
+  
+  .battery-progress {
+    height: 6px !important;
+  }
+  
+  /* Perbaiki solar info */
+  .solar-info {
+    padding: 8px !important;
+    margin-top: 8px !important;
+    font-size: 11px !important;
+  }
+  
+  .solar-info strong {
+    font-size: 12px !important;
+  }
+  
+  /* Perbaiki threshold indicator */
+  .pump-threshold-indicator {
+    padding: 10px !important;
+    margin-top: 10px !important;
+  }
+  
+  .threshold-labels {
+    gap: 8px !important;
+  }
+  
+  .threshold-label {
+    font-size: 10px !important;
+    padding: 4px 8px !important;
+  }
+  
+  .threshold-bar {
+    height: 28px !important;
+    margin: 10px 0 !important;
+  }
+  
+  .threshold-range .range-label {
+    font-size: 8px !important;
+  }
+  
+  .threshold-description {
+    font-size: 10px !important;
+    padding: 6px 8px !important;
+  }
+  
+  /* Perbaiki status bar */
+  .status-bar {
+    padding: 10px 12px !important;
+    gap: 8px !important;
+  }
+  
+  .status-item {
+    gap: 4px !important;
+  }
+  
+  .status-icon {
+    font-size: 12px !important;
+  }
+  
+  .status-label, .status-value {
+    font-size: 11px !important;
+  }
+  
+  /* Perbaiki soil value */
+  .soil-number {
+    font-size: 48px !important;
+  }
+  
+  .soil-unit {
+    font-size: 20px !important;
+  }
+  
+  .soil-range span {
+    font-size: 10px !important;
+  }
+  
+  /* Perbaiki history button */
+  .history-btn {
+    padding: 12px 20px !important;
+    font-size: 13px !important;
+  }
+  
+  /* Perbaiki control card */
+  .control-grid {
+    gap: 15px !important;
+  }
+  
+  .status-box {
+    padding: 12px !important;
+  }
+  
+  .status-box i {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 18px !important;
+  }
+  
+  .status-box-label {
+    font-size: 10px !important;
+  }
+  
+  .status-box-value {
+    font-size: 16px !important;
+  }
+  
+  .mode-btn {
+    padding: 12px !important;
+    font-size: 13px !important;
+  }
+  
+  .pump-btn {
+    padding: 10px !important;
+    font-size: 12px !important;
+  }
+  
+  .system-status {
+    padding: 12px !important;
+    gap: 12px !important;
+  }
+  
+  .status-indicator {
+    font-size: 11px !important;
+  }
+  
+  .dot {
+    width: 8px !important;
+    height: 8px !important;
+  }
+  
+  /* Perbaiki footer */
+  footer {
+    padding: 15px !important;
+  }
+  
+  .footer-content {
+    font-size: 11px !important;
+    gap: 10px !important;
+  }
+  
+  .footer-version {
+    font-size: 9px !important;
+  }
+}
+
 /* UTILITY CLASSES */
 .hidden {
   display: none !important;
